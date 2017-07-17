@@ -1,0 +1,94 @@
+package com.saki.adaptermodule;
+
+　
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+
+import javax.ejb.CreateException;
+import javax.ejb.SessionBean;
+import javax.ejb.SessionContext;
+
+import com.sap.aii.af.lib.mp.module.Module;
+import com.sap.aii.af.lib.mp.module.ModuleContext;
+import com.sap.aii.af.lib.mp.module.ModuleData;
+import com.sap.aii.af.lib.mp.module.ModuleException;
+import com.sap.engine.interfaces.messaging.api.Message;
+import com.sap.engine.interfaces.messaging.api.MessageDirection;
+import com.sap.engine.interfaces.messaging.api.MessageKey;
+import com.sap.engine.interfaces.messaging.api.PublicAPIAccessFactory;
+import com.sap.engine.interfaces.messaging.api.XMLPayload;
+import com.sap.engine.interfaces.messaging.api.auditlog.AuditAccess;
+import com.sap.engine.interfaces.messaging.api.auditlog.AuditLogStatus;
+import com.sap.engine.interfaces.messaging.api.exception.MessagingException;
+
+public class FindClassPathBean implements SessionBean, Module {
+	public static final String VERSION_ID = "$Id://tc/aii/30_REL/src/_adapters/_module/java/user/module/XMLElementEncrypt.java#1 $";
+	static final long serialVersionUID = 7435850550539048631L;
+	private SessionContext myContext;
+	public void ejbRemove() {
+	}
+	public void ejbActivate() {
+	}
+	public void ejbPassivate() {
+	}
+	public void setSessionContext(SessionContext context) {
+		myContext = context;
+	}
+	public void ejbCreate() throws CreateException {
+	}
+
+	public ModuleData process(ModuleContext moduleContext, ModuleData inputModuleData) throws ModuleException {
+		AuditAccess audit = null;
+
+		Object obj = null;
+		Message msg = null;
+		MessageKey key = null;
+
+　
+		obj = inputModuleData.getPrincipalData();
+		msg = (Message) obj;
+		if (msg.getMessageDirection().equals(MessageDirection.OUTBOUND))
+			key = new MessageKey(msg.getMessageId(), MessageDirection.OUTBOUND);
+		else
+			key = new MessageKey(msg.getMessageId(), MessageDirection.INBOUND);
+
+		
+		XMLPayload xmlpayload = msg.getDocument();
+		InputStream in = msg.getMainPayload().getInputStream();
+		
+		
+		BufferedReader reader = new BufferedReader( new InputStreamReader(in)); 
+			
+		String className = "";
+
+			try {
+				audit = PublicAPIAccessFactory.getPublicAPIAccess().getAuditAccess();				
+				while (( className = reader.readLine()) != null) { 
+
+　
+					try {
+						Class c = Class.forName(className);
+						URL loc = c.getProtectionDomain().getCodeSource().getLocation();
+						audit = PublicAPIAccessFactory.getPublicAPIAccess().getAuditAccess();
+						
+						audit.addAuditLogEntry(key, AuditLogStatus.SUCCESS, c + " found at " + loc);
+					} catch (Exception e) {
+						audit.addAuditLogEntry(key, AuditLogStatus.ERROR, "Class "+ className +"not found");
+					}					
+					
+							}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				audit.addAuditLogEntry(key, AuditLogStatus.ERROR, "Class "+ className +"not found");
+			} catch (MessagingException e) {
+				// TODO Auto-generated catch block
+				audit.addAuditLogEntry(key, AuditLogStatus.ERROR, "Class "+ className +"not found");
+			} 
+
+		return inputModuleData;
+	}
+
+}
